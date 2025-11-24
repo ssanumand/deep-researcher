@@ -24,5 +24,5 @@ class SERPQuerySearchResults:
 
     def __repr__(self):
         return (
-            f"SERPQuerySearchResults(" f"search_results={self.search_results})"
+            f"SERPQuerySearchResults(search_results={self.search_results})"
         )

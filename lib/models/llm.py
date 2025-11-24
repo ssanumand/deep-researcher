@@ -1,9 +1,4 @@
-from dataclasses import dataclass
-from math import ceil
-
 from pydantic import BaseModel, Field
-
-from lib.log import logger
 
 
 class SERPQuery(BaseModel):
@@ -55,59 +50,3 @@ class Learning(BaseModel):
             "investigations."
         ),
     )
-
-
-@dataclass
-class DeepResearchHyperParameters:
-    num_refinement_questions: int
-    num_learnings: int
-
-    learning_width: int
-    _learning_depth: int
-
-    @property
-    def max_allowed_depth(self) -> int:
-        return ceil(self.learning_width / 2)
-
-    @property
-    def learning_depth(self) -> int:
-        return self._learning_depth
-
-    @learning_depth.setter
-    def learning_depth(self, depth: int) -> None:
-        max_allowed_depth = self.max_allowed_depth
-
-        if depth > max_allowed_depth:
-            logger.warning(
-                "Depth %d Exceeded for Width %d (capping to: %d)",
-                depth,
-                self.learning_width,
-                max_allowed_depth,
-            )
-            self._learning_depth = max_allowed_depth
-        else:
-            self._learning_depth = depth
-
-    def __init__(
-        self,
-        num_refinement_questions: int,
-        num_learnings: int,
-        learning_width: int,
-        learning_depth: int,
-    ):
-        self.num_refinement_questions = num_refinement_questions
-        self.num_learnings = num_learnings
-        self.learning_width = learning_width
-        self.learning_depth = learning_depth
-
-    def __repr__(self):
-        return (
-            f"DeepResearchHyperParameters("
-            f"num_refinement_questions={self.num_refinement_questions}, "
-            f"num_learnings={self.num_learnings}, "
-            f"learning_width={self.learning_width}, "
-            f"learning_depth={self.learning_depth})"
-        )
-
-    def calculate_width_for_depth(self, depth: int) -> int:
-        return ceil(self.learning_width / 2**depth)

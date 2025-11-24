@@ -5,10 +5,10 @@ from typing import Literal, Optional
 
 from google.genai import Client
 from google.genai.types import (
-    Tool,
     GenerateContentConfig,
-    GoogleSearch,
     GenerateContentResponseUsageMetadata,
+    GoogleSearch,
+    Tool,
 )
 from openai import OpenAI
 from openai.types import CompletionUsage
@@ -16,7 +16,7 @@ from requests import post as rpost
 
 from lib.constants import LLMIdentifier
 from lib.log import logger
-from lib.models.crawler import SERPQuerySearchResults, SERPQuerySearchResult
+from lib.models.crawler import SERPQuerySearchResult, SERPQuerySearchResults
 from lib.types import ModelProvider
 
 

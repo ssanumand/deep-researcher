@@ -6,10 +6,10 @@ from openai import OpenAI
 
 from lib.analytics import LLMAnalytics
 from lib.constants import LLMIdentifier
-from lib.crawlers import OpenAISearchCrawler, GeminiSearchCrawler
+from lib.crawlers import GeminiSearchCrawler, OpenAISearchCrawler
 from lib.llm import OpenAICompatibleLLMModel
-from lib.researcher import DeepResearcher
 from lib.models.llm import DeepResearchHyperParameters
+from lib.researcher import DeepResearcher
 
 
 def main():

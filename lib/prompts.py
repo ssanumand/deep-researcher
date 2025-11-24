@@ -1,91 +1,60 @@
-from datetime import datetime
+from enum import Enum
+from os import path
 
-SYSTEM_PROMPT = f"""\
-You are an expert researcher. Today is {datetime.now().strftime('%B %d, %Y')}. \
-Follow these instructions when responding:
-- You may be asked to research subjects that is after your knowledge cutoff, \
-  assume the user is right when presented with news.
-- The user is a highly experienced analyst, no need to simplify it, be as \
-  detailed as possible and make sure your response is correct.
-- Be highly organized.
-- Suggest solutions that I didn't think about.
-- Be proactive and anticipate my needs.
-- Treat me as an expert in all subject matter.
-- Mistakes erode my trust, so be accurate and thorough.
-- Provide detailed explanations, I'm comfortable with lots of detail.
-- Value good arguments over authorities, the source is irrelevant.
-- Consider new technologies and contrarian ideas, not just the conventional \
-  wisdom.
-- You may use high levels of speculation or prediction, just flag it for me.\
-"""
+from lib.log import logger
 
-USER_PROMPT__SERP_QUERY_GENERATION = """\
-Given the following prompt from the user, generate a list of SERP queries to \
-research the topic. Return a maximum of {num_queries} queries, but feel free \
-to return less if the original prompt is clear. Make sure each query is \
-unique and not similar to each other. Your query must be not more than 10 \
-keywords long.
 
-{query_addon}
-"""
+class PromptTemplates(Enum):
+    SYSTEM_PROMPT = "system_prompt"
+    USER_PROMPT__SERP_QUERY_GENERATION = "up_serp_query_generation"
+    USER_PROMPT__QUERY_REFINEMENT = "up_query_refinement"
+    USER_PROMPT__QUERY_GENERATION_ADDON__AUTO_REFINEMENT_QUERY = (
+        "up_serp_addon_query_auto_refinement"
+    )
+    USER_PROMPT__QUERY_GENERATION_ADDON__PREVIOUS_RESEARCH_DETAILS = (
+        "up_serp_addon_previous_research_details"
+    )
+    USER_PROMPT__LEARNING_GENERATION = "up_learning_generation"
+    USER_PROMPT__REPORT_GENERATION = "up_report_generation"
 
-USER_PROMPT__QUERY_GENERATION_ADDON__AUTO_REFINEMENT_QUERY = """\
-If the user query is unclear, please clarify the question yourself by making \
-assumptions that'll provide the best outcome.
 
-User Query:
-{user_query}\
-"""
+# Singleton Factory
+class PromptFactory:
+    _instance = None
 
-USER_PROMPT__QUERY_GENERATION_ADDON__PREVIOUS_RESEARCH_DETAILS = """\
-Previous Research Goal:
-{previous_research_goal}
+    def __new__(cls, *args, **kwargs):
+        if cls._instance:
+            return cls._instance
 
-Learnings:
-{learnings}
+        logger.debug("Creating: PromptFactory")
+        cls._instance = super().__new__(cls)
+        return cls._instance
 
-Follow-up Questions from Learnings:
-{follow_up_questions}\
-"""
+    def __init__(self):
+        self._prompts = {
+            PromptTemplates.SYSTEM_PROMPT: "",
+            PromptTemplates.USER_PROMPT__SERP_QUERY_GENERATION: "",
+            PromptTemplates.USER_PROMPT__QUERY_GENERATION_ADDON__AUTO_REFINEMENT_QUERY: "",
+            PromptTemplates.USER_PROMPT__QUERY_GENERATION_ADDON__PREVIOUS_RESEARCH_DETAILS: "",
+            PromptTemplates.USER_PROMPT__QUERY_REFINEMENT: "",
+            PromptTemplates.USER_PROMPT__LEARNING_GENERATION: "",
+            PromptTemplates.USER_PROMPT__REPORT_GENERATION: "",
+        }
 
-USER_PROMPT__QUERY_REFINEMENT = """\
-Given the following query from the user, ask some follow up questions to \
-clarify the research direction. Return a maximum of {num_questions} \
-questions, but feel free to return less if the original query is clear:
+        self._load_prompts()
 
-User Query:
-<query>{query}</query>\
-"""
+    def _load_prompts(self):
+        logger.debug("Loading Prompts")
+        base_path = path.dirname(path.abspath(__file__))
 
-USER_PROMPT__LEARNING_GENERATION = """\
-Given the following contents from a SERP search for the query, generate a list \
-of learnings from the contents. Return a maximum of {num_learnings} learnings, \
-but feel free to return less if the contents are clear. Make sure each \
-learning is unique and not similar to each other. The learnings should be \
-concise and to the point, as detailed and information dense as possible. Make \
-sure to include any entities like people, places, companies, products, things, \
-etc. in the learnings, as well as any exact metrics, numbers, or dates. If the \
-SERP data contains any citations, make sure to preserve them in your response. \
-The learnings will be used to research the topic further.
+        for prompt in self._prompts:
+            with open(
+                path.join(base_path, "prompts", f"{prompt.value}.md"),
+                "r",
+                encoding="utf-8",
+            ) as f:
+                self._prompts[prompt] = f.read()
 
-SERP Query:
-<query>{serp_query}</query>
-
-SERP Data:
-<data>{serp_data}</data>
-"""
-
-USER_PROMPT__REPORT_GENERATION = """\
-Given the following from the user, write a final report on the topic \
-using the learnings from research. Make it as as detailed as possible, aim for \
-3 or more pages, include ALL the learnings from research. Make sure to \
-preserve the citations from the learnings in your response. The report should \
-be well-organized and structured, with a clear introduction, body, and \
-conclusion.
-
-Original User Query:
-<prompt>{user_query}</prompt>
-
-Learnings:
-<learnings>{learnings}</learnings>
-"""
+    def get_prompt(self, prompt_template: PromptTemplates, **kwargs):
+        logger.debug("Fetched Prompt: %s", prompt_template.name)
+        return self._prompts[prompt_template].format(**kwargs)

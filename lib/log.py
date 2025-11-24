@@ -1,5 +1,5 @@
-from datetime import datetime
 import logging
+from datetime import datetime
 
 file_handler = logging.FileHandler(
     datetime.now().strftime("./logs/%Y-%m-%d_%H-%M-%S.log"), mode="w"
@@ -14,9 +14,7 @@ file_handler.setFormatter(
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.INFO)
 console_handler.setFormatter(
-    logging.Formatter(
-        "%(asctime)s - %(filename)s - %(levelname)s - %(message)s"
-    )
+    logging.Formatter("%(asctime)s - %(filename)s - %(levelname)s - %(message)s")
 )
 
 logger = logging.getLogger("lib")

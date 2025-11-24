@@ -1,6 +1,6 @@
 from enum import Enum
 
-from lib.types import ModelParameters, ModelProvider, ModelParametersSearchCost
+from lib.types import ModelParameters, ModelParametersSearchCost, ModelProvider
 
 
 class LLMIdentifier(Enum):

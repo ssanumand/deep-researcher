@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Literal, Optional
 
-from openai.types import CompletionUsage
 from google.genai.types import GenerateContentResponseUsageMetadata
+from openai.types import CompletionUsage
 
 from lib.constants import LLMIdentifier
 from lib.log import logger
@@ -90,8 +90,7 @@ class LLMAnalytics(Analytics):
         )
 
         non_cached_input_tokens_cost = (
-            (self.total_input_tokens - self.total_cached_input_tokens)
-            / 10_00_000
+            (self.total_input_tokens - self.total_cached_input_tokens) / 10_00_000
         ) * llm_model.value.cpm_non_cached_input_tokens_dollars
         cached_input_tokens_cost = (
             self.total_cached_input_tokens

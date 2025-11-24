@@ -5,24 +5,15 @@ from openai.types import CompletionUsage
 from pydantic import BaseModel
 
 from lib.analytics import Analytics
+from lib.config import DeepResearchHyperParameters
 from lib.crawlers import Crawler, LLMCrawler
 from lib.llm import LLMModel
 from lib.log import logger
+from lib.models.crawler import SERPQuerySearchResults
 from lib.models.llm import (
+    Learning,
     SERPQueries,
     UserQueryRefinementQuestions,
-    Learning,
-    DeepResearchHyperParameters,
-)
-from lib.models.crawler import SERPQuerySearchResults
-from lib.prompts import (
-    SYSTEM_PROMPT,
-    USER_PROMPT__SERP_QUERY_GENERATION,
-    USER_PROMPT__QUERY_REFINEMENT,
-    USER_PROMPT__LEARNING_GENERATION,
-    USER_PROMPT__QUERY_GENERATION_ADDON__PREVIOUS_RESEARCH_DETAILS,
-    USER_PROMPT__QUERY_GENERATION_ADDON__AUTO_REFINEMENT_QUERY,
-    USER_PROMPT__REPORT_GENERATION,
 )
 from lib.types import UsageDescription
 
@@ -32,17 +23,17 @@ class DeepResearcher:
         self,
         crawler: Crawler | LLMCrawler,
         llm_model: LLMModel,
-        research_parameters: DeepResearchHyperParameters = DeepResearchHyperParameters(
-            num_refinement_questions=3,
-            num_learnings=3,
-            learning_width=3,
-            learning_depth=2,
-        ),
+        research_parameters: Optional[DeepResearchHyperParameters] = None,
         analytics_instance: Optional[Analytics] = None,
     ):
         self.crawler = crawler
         self.llm_model = llm_model
-        self.research_parameters = research_parameters
+        self.research_parameters = research_parameters or DeepResearchHyperParameters(
+            num_refinement_questions=3,
+            num_learnings=3,
+            learning_width=3,
+            learning_depth=2,
+        )
         self.analytics_instance = analytics_instance
 
         self.final_learnings = []
@@ -62,26 +53,21 @@ class DeepResearcher:
 
         if auto_query_refinement:
             logger.info("Query Refinement: Auto")
-            user_query = USER_PROMPT__QUERY_GENERATION_ADDON__AUTO_REFINEMENT_QUERY.format(
-                user_query=user_query
+            user_query = (
+                USER_PROMPT__QUERY_GENERATION_ADDON__AUTO_REFINEMENT_QUERY.format(
+                    user_query=user_query
+                )
             )
         else:
             logger.info("Query Refinement: Manual")
             new_questions = self._refine_user_query(user_query=user_query)
             answers = self._prompt_user_for_answers(questions=new_questions)
 
-            logger.info(
-                "Generated: %d Follow-up Questions", len(new_questions)
-            )
-            user_query += (
-                "\n\nFollow-up Questions and Answers:\n"
-                + "\n\n".join(
-                    [
-                        f"Question: {question}\nAnswer: {answer}"
-                        for question, answer in zip(new_questions, answers)
-                    ]
-                )
-            )
+            logger.info("Generated: %d Follow-up Questions", len(new_questions))
+            user_query += "\n\nFollow-up Questions and Answers:\n" + "\n\n".join([
+                f"Question: {question}\nAnswer: {answer}"
+                for question, answer in zip(new_questions, answers, strict=False)
+            ])
         self.run(
             width=self.research_parameters.learning_width,
             depth=0,
@@ -144,22 +130,28 @@ class DeepResearcher:
             else:
                 logger.info("Crawler: Non-LLM-based")
                 serp_data = self._search_query(query=serp_query.query)
+
+            learnings_followup_questions_serp_query = (
+                f"SERP Query: {serp_query.query}\n"
+                f"Research Goal: {serp_query.research_goal}"
+            )
             learning, follow_up_queries = (
                 self._generate_learnings_and_follow_up_questions(
-                    serp_query=(
-                        f"SERP Query: {serp_query.query}\n"
-                        f"Research Goal: {serp_query.research_goal}"
-                    ),
+                    serp_query=learnings_followup_questions_serp_query,
                     serp_data=serp_data,
                 )
             )
 
             learnings.append(learning)
-            self.final_learnings.append(learning)
-            new_user_query = USER_PROMPT__QUERY_GENERATION_ADDON__PREVIOUS_RESEARCH_DETAILS.format(
-                previous_research_goal=serp_query.research_goal,
-                learnings=learnings,
-                follow_up_questions=follow_up_queries,
+            self.final_learnings.append(
+                learnings_followup_questions_serp_query + "\nLearnings: " + learning
+            )
+            new_user_query = (
+                USER_PROMPT__QUERY_GENERATION_ADDON__PREVIOUS_RESEARCH_DETAILS.format(
+                    previous_research_goal=serp_query.research_goal,
+                    learnings=learnings,
+                    follow_up_questions=follow_up_queries,
+                )
             )
 
             new_depth = depth + 1
@@ -185,9 +177,7 @@ class DeepResearcher:
             response_format=UserQueryRefinementQuestions,
         ).questions
 
-    def _generate_serp_queries(
-        self, user_query: str, width: int
-    ) -> SERPQueries:
+    def _generate_serp_queries(self, user_query: str, width: int) -> SERPQueries:
         logger.info("Generating SERP Queries")
 
         return self._generate_llm_response(
@@ -203,16 +193,14 @@ class DeepResearcher:
         logger.info("Generating Learnings and Follow-up Questions")
 
         if isinstance(serp_data, SERPQuerySearchResults):
-            serp_data = "\n\n".join(
-                [
-                    (
-                        f"Title: {result.title}\nDescription: "
-                        f"{result.description}\nContent: {result.content}"
-                        f"\nURL: {result.url}"
-                    )
-                    for result in serp_data.search_results
-                ]
-            )
+            serp_data = "\n\n".join([
+                (
+                    f"Title: {result.title}\nDescription: "
+                    f"{result.description}\nContent: {result.content}"
+                    f"\nURL: {result.url}"
+                )
+                for result in serp_data.search_results
+            ])
 
         response = self._generate_llm_response(
             user_prompt=USER_PROMPT__LEARNING_GENERATION.format(
